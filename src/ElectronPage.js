@@ -503,7 +503,29 @@ class ElectronPage {
           requestAnimationFrame(function() {
             requestAnimationFrame(function() {
               var r = el.getBoundingClientRect();
-              resolve({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
+              var cx = r.x + r.width / 2;
+              var cy = r.y + r.height / 2;
+              // Verify the element is actually at these coordinates
+              var atPoint = document.elementFromPoint(cx, cy);
+              if (atPoint && (atPoint === el || el.contains(atPoint) || atPoint.contains(el))) {
+                resolve({ x: cx, y: cy });
+              } else {
+                // Something is covering it — try clicking at a safe spot
+                // Walk rects to find an unobstructed point
+                var rects = el.getClientRects();
+                for (var i = 0; i < rects.length; i++) {
+                  var rr = rects[i];
+                  var tx = rr.x + rr.width / 2;
+                  var ty = rr.y + rr.height / 2;
+                  var check = document.elementFromPoint(tx, ty);
+                  if (check && (check === el || el.contains(check) || check.contains(el))) {
+                    resolve({ x: tx, y: ty });
+                    return;
+                  }
+                }
+                // Fallback: use original center anyway
+                resolve({ x: cx, y: cy });
+              }
             });
           });
         });
