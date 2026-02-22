@@ -510,8 +510,7 @@ class ElectronPage {
               if (atPoint && (atPoint === el || el.contains(atPoint) || atPoint.contains(el))) {
                 resolve({ x: cx, y: cy });
               } else {
-                // Something is covering it — try clicking at a safe spot
-                // Walk rects to find an unobstructed point
+                // Something is covering it — find unobstructed point
                 var rects = el.getClientRects();
                 for (var i = 0; i < rects.length; i++) {
                   var rr = rects[i];
@@ -523,7 +522,7 @@ class ElectronPage {
                     return;
                   }
                 }
-                // Fallback: use original center anyway
+                // Fallback: use original center
                 resolve({ x: cx, y: cy });
               }
             });
@@ -533,6 +532,21 @@ class ElectronPage {
     `, true);
     if (!rect) throw new Error(`Element not found: ${selector}`);
     return rect;
+  }
+
+  /**
+   * Click at (x, y) using CDP — reliable coordinate system for BrowserView.
+   */
+  async _cdpClick(x, y) {
+    await safeAttachDebugger(this._wc);
+    await cdpSend(this._wc, 'Input.dispatchMouseEvent', {
+      type: 'mousePressed', x, y, button: 'left', clickCount: 1,
+    });
+    await sleep(20);
+    await cdpSend(this._wc, 'Input.dispatchMouseEvent', {
+      type: 'mouseReleased', x, y, button: 'left', clickCount: 1,
+    });
+    await sleep(5);
   }
 
   /**
@@ -556,7 +570,7 @@ class ElectronPage {
     }
     if (options.delay) await sleep(options.delay);
     const { x, y } = await this._getElementCenter(selector);
-    await this.mouse.click(Math.round(x), Math.round(y));
+    await this._cdpClick(Math.round(x), Math.round(y));
   }
 
   async type(selector, text, delay = 0) {
